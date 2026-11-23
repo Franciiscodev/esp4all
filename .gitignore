@@ -1,0 +1,53 @@
+# =============================================================================
+# ESP4All Core — .gitignore
+# =============================================================================
+
+# --- Android NDK build outputs (distribuir binários nos GitHub Releases) ---
+obj/
+libs/
+*.o
+*.d
+*.a
+*.so
+*.so.*
+*.apk
+*.aab
+
+# --- Configs locais de teste (mantenha apenas templates/*.jsonc no repo) ---
+configs/
+ue4_config.json
+esp4all_ui.cfg
+documentation.md
+
+# --- Binários / artefatos de compilação no host (C++17 tests) ---
+build/
+out/
+dist/
+release/
+*.dSYM/
+*.out
+*.exe
+esp4all_test
+test_config_and_templates
+
+# --- macOS / Windows / Linux ---
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+Desktop.ini
+
+# --- IDEs / Editores / Clangd ---
+.vscode/
+.idea/
+.clangd/
+.cache/
+.agents/
+compile_commands.json
+*.swp
+*.swo
+*.bak
+*.tmp
+*~
+*.log

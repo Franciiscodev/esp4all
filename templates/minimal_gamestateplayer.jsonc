@@ -1,0 +1,111 @@
+// =============================================================================
+// ESP4All Core — Template Minimal: GameStatePlayer (UE4)
+// =============================================================================
+// Itera apenas jogadores via UWorld -> GameState -> PlayerArray -> PawnPrivate
+// (lista limpa sem props/árvores e sem precisar de filtro sentinel/class_private).
+// Exige apenas 7 offsets essenciais para desenhar Box.
+//
+// No dispositivo Android, envie este arquivo para:
+//   /data/local/tmp/ue4_config.json
+// =============================================================================
+{
+    "$schema": "../esp4all.schema.json",
+    "meta": {
+        "game": "Minimal UE4 — GameStatePlayer (Box Only)",
+        "engine": "UE4",
+        "arch": 64
+    },
+
+    "game": {
+        "package_name": "com.example.ue4game", // REQUIRED: processo em /proc/<pid>/cmdline
+        "module_name": "libUE4.so",            // REQUIRED: biblioteca em /proc/<pid>/maps
+        "segment": "r-xp"                      // OPTIONAL (default "r-xp"): "r-xp" | "first" | "r--p" | "rw-p" | "bss"
+    },
+
+    "entity_provider": {
+        "type": "GameStatePlayer"              // REQUIRED: UWorld -> GameState -> PlayerArray -> PawnPrivate
+    },
+
+    // [1/7] Raiz global UWorld* (origem da chain: moduleBase)
+    "globals": {
+        "GWorld_chain": []                     // REQUIRED: ex. ["0xBFA10E0"]
+    },
+
+    // [2/7] e [3/7] UWorld -> GameState -> PlayerArray
+    // (PersistentLevel e LevelActors não são usados por este provider.)
+    "world": {
+        "GameState": null,                     // REQUIRED: UWorld::GameState (faixa típica: 0x120–0x1B0)
+        "PlayerArray": null                    // REQUIRED: AGameStateBase::PlayerArray TArray<APlayerState*> (0x238–0x4D0)
+        // "NetDriver": "0x38"                 // OPTIONAL (externo/interno): resolve LocalController/Pawn/CameraCache sem LocalPlayers
+    },
+
+    // [4/7] Ponteiro APlayerState -> APawn
+    "player_state": {
+        "PawnPrivate": null                    // REQUIRED: APlayerState::PawnPrivate (faixa típica: 0x280–0x528)
+    },
+
+    // [5/7] Câmera via ViewMatrix 4x4 (origem da chain: moduleBase)
+    // Nota: heuristic_pc_scan não se aplica ao GameStatePlayer (PlayerArray só contém APlayerState*).
+    // Para usar camera_cache sem ViewMatrix (mesmo com LocalPlayers encriptado), configure world.NetDriver
+    // e descomente o bloco "local_player" + "camera" comentado abaixo (ou veja templates/full_gamestateplayer.jsonc).
+    "camera": {
+        "mode": "matrix",                      // "matrix" | "camera_cache" | "auto"
+        "matrix_layout": "column_major",       // UE4 padrão: "column_major"
+        "up_axis": "Z",                        // UE4 padrão: "Z"
+        "view_matrix_chain": []                // REQUIRED: ex. ["0xBF74D50", "0x20", "+0x290"]
+    },
+
+    // --- Alternativa SEM ViewMatrix (CameraCache via NetDriver — funciona no EXTERNO e INTERNO) ---
+    // "local_player": {
+    //     "LocalPlayer_PlayerController": "0x30",
+    //     "NetDriver_ServerConnection": "0x78",      // UNetDriver::ServerConnection
+    //     // "ServerConnection_PlayerController": "0x30", // OPTIONAL (default = LocalPlayer_PlayerController)
+    //     "PlayerController_Pawn": null,             // OPTIONAL: APlayerController::AcknowledgedPawn
+    //     "PlayerController_CameraManager": null     // REQUIRED (câmera): APlayerController::PlayerCameraManager
+    // },
+    // "camera": {
+    //     "mode": "camera_cache",
+    //     "up_axis": "Z",
+    //     "camera_cache": {
+    //         "CameraCache": null,
+    //         "POV": "0x10"
+    //     }
+    // },
+
+    "name_system": {
+        "enabled": false
+    },
+
+    "entity_filter": {
+        "mode": "none",
+        "skip_zero_pos": true,
+        "skip_local_player": false             // ative true após configurar local_player
+    },
+
+    // [6/7] e [7/7] Posição 3D do Pawn
+    // PositionSource default = "RelativeLocation" (lê RootComponent + WorldPosition).
+    "actor": {
+        // AActor::RootComponent varia por versão UE4:
+        //   0x130 (pré-4.14) | 0x158 (4.17–4.19) | 0x1B0 (4.20–4.26) | 0x130–0x278 (4.27/custom)
+        "RootComponent": null,                 // REQUIRED
+
+        // USceneComponent::RelativeLocation (FVector, 12 bytes)
+        "WorldPosition": null,                 // REQUIRED
+
+        "BoxHeight": 165.0,                    // world units (cm em UE4)
+        "DistanceScale": 0.01                  // cm -> metros
+    }
+
+    // --- Modo Interno opcional (libesp4all_internal.so — ignorado no executável externo) ---
+    // ,
+    // "engine_path": {
+    //     "ViewportWorld": "0x70"             // necessário se usar internal.GUObjectArray abaixo
+    // },
+    // "internal": {
+    //     "GNames_getter": "0x...",           // void* (*)() -> TNameEntryArray* / FNamePool* (se ativar name_system)
+    //     "GUObjectArray": "0x...",           // FUObjectArray::ObjObjects (fallback para GameViewport->World)
+    //     "UObjectArray_Chunked": true,       // true (UE4.21+ FChunkedFixedUObjectArray) | false (flat TUObjectArray)
+    //     "ViewportClassName": "GameViewportClient",
+    //     "safe_memory_read": true            // true = SAFE_SELF_VM (à prova de SIGSEGV), false = DIRECT_MEMCPY
+    // }
+}

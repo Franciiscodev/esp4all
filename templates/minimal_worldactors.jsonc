@@ -1,0 +1,110 @@
+// =============================================================================
+// ESP4All Core — Template Minimal: WorldActors (UE4 padrão)
+// =============================================================================
+// Ponto de partida mínimo: apenas 6 offsets essenciais para desenhar Box
+// (sem GNames/FNamePool, LocalPlayer, atributos ou esqueleto).
+//
+// No dispositivo Android, envie este arquivo para:
+//   /data/local/tmp/ue4_config.json
+// (O ConfigManager usa nlohmann/json com ignore_comments=true.)
+//
+// Nota sobre o pool de 256 slots:
+//   Com entity_filter.mode = "none", todos os atores do ULevel entram no pool.
+//   Em mapas com muitos props/árvores, adicione um filtro (sentinel ou
+//   class_private) ou use templates/full_worldactors.jsonc.
+// =============================================================================
+{
+    "$schema": "../esp4all.schema.json",
+    "meta": {
+        "game": "Minimal UE4 — WorldActors (Box Only)",
+        "engine": "UE4",
+        "arch": 64
+    },
+    "game": {
+        "package_name": "com.example.ue4game", // REQUIRED: processo em /proc/<pid>/cmdline
+        "module_name": "libUE4.so", // REQUIRED: biblioteca em /proc/<pid>/maps
+        "segment": "r-xp" // OPTIONAL (default "r-xp"): "r-xp" | "first" | "r--p" | "rw-p" | "bss"
+    },
+    "entity_provider": {
+        "type": "WorldActors" // REQUIRED: UWorld -> PersistentLevel -> Actors[]
+    },
+    // [1/6] Raiz global UWorld* (origem da chain: moduleBase)
+    // Exemplo direto: ["0xD3A8150"] | Indireção dupla: ["0xE8402B0", "0x50"]
+    "globals": {
+        "GWorld_chain": [] // REQUIRED
+    },
+    // [2/6] e [3/6] UWorld -> PersistentLevel -> Actors[]
+    "world": {
+        "PersistentLevel": "0x30", // REQUIRED: UWorld::PersistentLevel (típico: 0x30; algumas builds: 0x90)
+        // "NetDriver": "0x38",                // OPTIONAL (externo/interno): UWorld::NetDriver p/ resolver PlayerController/Pawn sem LocalPlayers
+        "LevelActors": "0x98" // REQUIRED (externo): ULevel::Actors TArray<AActor*> (pode ser null se usar internal.GetActorArray_fn)
+    },
+    // [4/6] Câmera via ViewMatrix 4x4 (origem da chain: moduleBase)
+    // Atenção ao '+' no último passo: soma o offset sem dereferenciar a matriz.
+    "camera": {
+        "mode": "matrix", // "matrix" | "camera_cache" | "auto"
+        "matrix_layout": "column_major", // UE4 padrão: "column_major"
+        "up_axis": "Z", // UE4 padrão: "Z"
+        "view_matrix_chain": [] // REQUIRED: ex. ["0xD3E30A0", "0x20", "+0x270"]
+    },
+    // --- Alternativa SEM ViewMatrix (CameraCache via NetDriver OU scan heurístico) ---
+    // Caso não tenha ViewMatrix, remova o bloco "camera" acima e descomente os blocos abaixo.
+    // Se tiver world.NetDriver + NetDriver_ServerConnection (funciona já no modo EXTERNO!),
+    // pode deixar heuristic_pc_scan = false:
+    //
+    // "local_player": {
+    //     "LocalPlayer_PlayerController": "0x30",    // UPlayer::PlayerController (ABI estável: 0x30)
+    //     // "NetDriver_ServerConnection": "0x78",   // OPTIONAL: UNetDriver::ServerConnection (bypass de LocalPlayers encriptado)
+    //     // "ServerConnection_PlayerController": "0x30", // OPTIONAL (default = LocalPlayer_PlayerController)
+    //     // "PlayerController_Pawn": null,          // OPTIONAL: APlayerController::AcknowledgedPawn (0x250–0x2C0)
+    //     "PlayerController_CameraManager": null     // REQUIRED (câmera): faixa típica 0x2B8–0x390
+    // },
+    // "camera": {
+    //     "mode": "camera_cache",
+    //     "up_axis": "Z",
+    //     "heuristic_pc_scan": true,          // localiza APlayerController em Actors[] pelo FOV válido [1..179] (false se usar NetDriver)
+    //     "camera_cache": {
+    //         "CameraCache": null,            // REQUIRED (câmera): APlayerCameraManager::CameraCachePrivate (0x1AE0–0x2E00)
+    //         "POV": "0x10"                   // FCameraCacheEntry::POV (ABI estável: 0x10)
+    //     }
+    // },
+    "name_system": {
+        "enabled": false
+    },
+    "entity_filter": {
+        "mode": "none",
+        "skip_zero_pos": true,
+        "skip_local_player": false // ative true após configurar local_player
+    },
+    // [5/6] e [6/6] Posição 3D do ator
+    // PositionSource default = "RelativeLocation" (lê RootComponent + WorldPosition).
+    // Para usar ComponentToWorld em vez de RelativeLocation:
+    //   "PositionSource": "ComponentToWorld",
+    //   "ComponentToWorld": "0x1D0"           // soma +0x10 (FTransform::Translation) automaticamente e ignora WorldPosition
+    "actor": {
+        // AActor::RootComponent varia por versão UE4:
+        //   0x130 (pré-4.14) | 0x158 (4.17–4.19) | 0x1B0 (4.20–4.26) | 0x130–0x278 (4.27/custom)
+        "RootComponent": null, // REQUIRED
+        // USceneComponent::RelativeLocation (FVector, 12 bytes)
+        //   0x11C (padrão UE4.20–4.27) | 0x128–0x280 (builds customizadas)
+        "WorldPosition": null, // REQUIRED
+        "BoxHeight": 165.0, // world units (cm em UE4)
+        "DistanceScale": 0.01 // cm -> metros
+    }
+    // --- Modo Interno opcional (libesp4all_internal.so — ignorado no executável externo) ---
+    // Permite invocar getters nativos da UE4 e descobrir GameViewport->World via GUObjectArray:
+    // ,
+    // "engine_path": {
+    //     "ViewportWorld": "0x70"             // necessário se usar internal.GUObjectArray abaixo
+    // },
+    // "internal": {
+    //     "GNames_getter": "0x...",           // void* (*)() -> TNameEntryArray* / FNamePool*
+    //     "GNames_getter_offset": "0x0",      // offset somado ao ponteiro retornado (opcional)
+    //     "GNames_getter_deref": false,       // true se retornar ponteiro-para-ponteiro
+    //     "GetActorArray_fn": "0x...",        // void* (*)(uintptr_t level) -> TArray<AActor*>* (permite LevelActors = null)
+    //     "GUObjectArray": "0x...",           // FUObjectArray::ObjObjects (fallback para GameViewport->World)
+    //     "UObjectArray_Chunked": true,       // true (UE4.21+ FChunkedFixedUObjectArray) | false (flat TUObjectArray)
+    //     "ViewportClassName": "GameViewportClient",
+    //     "safe_memory_read": true            // true = SAFE_SELF_VM (à prova de SIGSEGV), false = DIRECT_MEMCPY
+    // }
+}

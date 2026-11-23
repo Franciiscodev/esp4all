@@ -1,0 +1,413 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://esp4all.local/esp4all.schema.json",
+    "title": "ESP4All Core Configuration",
+    "description": "Configuration schema for esp4all_core (ConfigManager.hpp). Comments (// and /* */) are supported by the C++ loader.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["game"],
+    "definitions": {
+        "nullableHexOffset": {
+            "description": "Hex offset string (e.g. \"0x30\"), non-negative integer, or null (unset).",
+            "oneOf": [
+                { "type": "null" },
+                { "type": "integer", "minimum": 0 },
+                { "type": "string", "pattern": "^(0[xX][0-9A-Fa-f]+|[0-9]+)$" }
+            ]
+        },
+        "chainStep": {
+            "description": "Pointer chain step: \"0x20\" (deref), \"+0x270\" (add without deref), integer (deref), or {offset, deref}.",
+            "oneOf": [
+                { "type": "integer" },
+                { "type": "string", "pattern": "^([+&*]|add:)?\\s*-?(0[xX][0-9A-Fa-f]+|[0-9]+)$" },
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["offset"],
+                    "properties": {
+                        "offset": {
+                            "oneOf": [
+                                { "type": "integer" },
+                                { "type": "string", "pattern": "^-?(0[xX][0-9A-Fa-f]+|[0-9]+)$" }
+                            ]
+                        },
+                        "deref": { "type": "boolean", "default": true }
+                    }
+                }
+            ]
+        },
+        "pointerChain": {
+            "type": "array",
+            "items": { "$ref": "#/definitions/chainStep" }
+        },
+        "boneProfile": {
+            "type": "array",
+            "minItems": 15,
+            "maxItems": 15,
+            "items": { "type": "integer" }
+        }
+    },
+    "properties": {
+        "$schema": { "type": "string" },
+        "meta": {
+            "type": "object",
+            "description": "Informational metadata (meta.engine_version and fallback meta.package_name are optionally read by ConfigManager).",
+            "additionalProperties": true
+        },
+        "game": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["package_name", "module_name"],
+            "properties": {
+                "package_name": { "type": "string", "minLength": 1 },
+                "module_name": { "type": "string", "minLength": 1 },
+                "segment": { "type": "string", "default": "r-xp" },
+                "engine_version": { "type": "string" }
+            }
+        },
+        "lib": {
+            "type": "object",
+            "description": "Legacy alias for game.module_name and game.segment.",
+            "additionalProperties": false,
+            "properties": {
+                "name": { "type": "string" },
+                "segment": { "type": "string" }
+            }
+        },
+        "entity_provider": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "enum": ["WorldActors", "GameStatePlayer"],
+                    "default": "WorldActors"
+                }
+            }
+        },
+        "globals": {
+            "type": "object",
+            "description": "Module-rooted global offsets / pointer chains (origin: moduleBase).",
+            "additionalProperties": false,
+            "properties": {
+                "GWorld": { "$ref": "#/definitions/nullableHexOffset" },
+                "GWorld_chain": { "$ref": "#/definitions/pointerChain" },
+                "GWorldIntermediate": { "$ref": "#/definitions/nullableHexOffset" },
+                "GWorld_Offset": { "$ref": "#/definitions/nullableHexOffset" },
+                "GEngine": { "$ref": "#/definitions/nullableHexOffset" },
+                "GEngine_chain": { "$ref": "#/definitions/pointerChain" },
+                "GEngineIntermediate": { "$ref": "#/definitions/nullableHexOffset" },
+                "GEngine_Offset": { "$ref": "#/definitions/nullableHexOffset" },
+                "GNames": { "$ref": "#/definitions/nullableHexOffset" },
+                "GNames_chain": { "$ref": "#/definitions/pointerChain" },
+                "GNames_Offset": { "$ref": "#/definitions/nullableHexOffset" },
+                "FNamePool": { "$ref": "#/definitions/nullableHexOffset" },
+                "FNamePool_chain": { "$ref": "#/definitions/pointerChain" },
+                "FNamePool_Offset": { "$ref": "#/definitions/nullableHexOffset" },
+                "EntityList_chain": { "$ref": "#/definitions/pointerChain" },
+                "LocalPawn_chain": { "$ref": "#/definitions/pointerChain" },
+                "ViewMatrix_chain": { "$ref": "#/definitions/pointerChain" }
+            }
+        },
+        "engine_path": {
+            "type": "object",
+            "description": "Fallback path GEngine -> GameViewport -> World.",
+            "additionalProperties": false,
+            "properties": {
+                "EngineGameViewport": { "$ref": "#/definitions/nullableHexOffset" },
+                "ViewportWorld": { "$ref": "#/definitions/nullableHexOffset" }
+            }
+        },
+        "world": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "PersistentLevel": { "$ref": "#/definitions/nullableHexOffset" },
+                "Levels": { "$ref": "#/definitions/nullableHexOffset" },
+                "NetDriver": { "$ref": "#/definitions/nullableHexOffset" },
+                "LevelActors": { "$ref": "#/definitions/nullableHexOffset" },
+                "ArrayCountMode": {
+                    "type": "string",
+                    "enum": ["count", "end_ptr", "null_terminated"],
+                    "default": "count"
+                },
+                "MaxActors": { "type": "integer", "minimum": 1, "maximum": 10000, "default": 3000 },
+                "EntityArrayMaxCount": { "type": "integer", "minimum": 1, "maximum": 10000 },
+                "EntityList_chain": { "$ref": "#/definitions/pointerChain" },
+                "GameState": { "$ref": "#/definitions/nullableHexOffset" },
+                "PlayerArray": { "$ref": "#/definitions/nullableHexOffset" },
+                "OwningGameInstance": { "$ref": "#/definitions/nullableHexOffset" }
+            }
+        },
+        "local_player": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "GameInstance_LocalPlayers": { "$ref": "#/definitions/nullableHexOffset" },
+                "LocalPlayer_PlayerController": { "$ref": "#/definitions/nullableHexOffset" },
+                "NetDriver_ServerConnection": { "$ref": "#/definitions/nullableHexOffset" },
+                "ServerConnection_PlayerController": { "$ref": "#/definitions/nullableHexOffset" },
+                "PlayerController_Pawn": { "$ref": "#/definitions/nullableHexOffset" },
+                "PlayerController_CameraManager": { "$ref": "#/definitions/nullableHexOffset" },
+                "LocalPawn_chain": { "$ref": "#/definitions/pointerChain" },
+                "LocalPawn_from_world_chain": { "$ref": "#/definitions/pointerChain" }
+            }
+        },
+        "camera": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "mode": {
+                    "type": "string",
+                    "enum": ["auto", "matrix", "view_matrix", "camera_cache", "trig"],
+                    "default": "auto"
+                },
+                "matrix_layout": {
+                    "type": "string",
+                    "enum": ["column_major", "row_major"],
+                    "default": "column_major"
+                },
+                "up_axis": {
+                    "type": "string",
+                    "enum": ["Z", "Y", "z", "y"],
+                    "default": "Z"
+                },
+                "heuristic_pc_scan": { "type": "boolean", "default": false },
+                "view_matrix_chain": { "$ref": "#/definitions/pointerChain" },
+                "camera_cache": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "CameraCache": { "$ref": "#/definitions/nullableHexOffset" },
+                        "POV": { "$ref": "#/definitions/nullableHexOffset" },
+                        "Location": { "$ref": "#/definitions/nullableHexOffset" },
+                        "Rotation": { "$ref": "#/definitions/nullableHexOffset" },
+                        "FOV": { "$ref": "#/definitions/nullableHexOffset" },
+                        "FOVRelativeToCache": { "type": "boolean", "default": false },
+                        "heuristic_pc_scan": { "type": "boolean" }
+                    }
+                }
+            }
+        },
+        "name_system": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "enabled": { "type": "boolean" },
+                "type": {
+                    "type": "string",
+                    "enum": ["FNamePool", "GNames"],
+                    "default": "FNamePool"
+                },
+                "ChunkSize": { "$ref": "#/definitions/nullableHexOffset" },
+                "EntryStride": { "$ref": "#/definitions/nullableHexOffset" },
+                "NameStringOffset": { "$ref": "#/definitions/nullableHexOffset" },
+                "allocator": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "CurrentBlock": { "$ref": "#/definitions/nullableHexOffset" },
+                        "Blocks": { "$ref": "#/definitions/nullableHexOffset" },
+                        "Stride": { "$ref": "#/definitions/nullableHexOffset" }
+                    }
+                },
+                "entry": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "HeaderSize": { "$ref": "#/definitions/nullableHexOffset" }
+                    }
+                }
+            }
+        },
+        "entity_filter": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "mode": {
+                    "type": "string",
+                    "enum": ["none", "sentinel", "class_name", "class_private"],
+                    "default": "none"
+                },
+                "max_distance": {
+                    "type": "number",
+                    "default": 500.0,
+                    "description": "Scaled distance limit (dist * DistanceScale). Requires local_player."
+                },
+                "max_z_delta": {
+                    "type": "number",
+                    "default": 10000.0,
+                    "description": "Vertical delta limit in UNSCALED world units (before DistanceScale). Requires local_player."
+                },
+                "skip_zero_pos": { "type": "boolean", "default": true },
+                "skip_local_player": { "type": "boolean", "default": true },
+                "skip_same_team": { "type": "boolean", "default": false },
+                "skip_dead": { "type": "boolean", "default": false },
+                "sentinel": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "offset": { "$ref": "#/definitions/nullableHexOffset" },
+                        "chain": { "$ref": "#/definitions/pointerChain" },
+                        "type": { "type": "string", "enum": ["float", "int", "int32"], "default": "float" },
+                        "value": { "type": "number" },
+                        "equals": { "type": "number" },
+                        "epsilon": { "type": "number", "default": 0.1 }
+                    }
+                },
+                "class_name": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "contains": { "type": "array", "items": { "type": "string" } },
+                        "exact": { "type": "array", "items": { "type": "string" } },
+                        "exclude": { "type": "array", "items": { "type": "string" } }
+                    }
+                },
+                "class_private": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "offset": { "$ref": "#/definitions/nullableHexOffset" },
+                        "target_names": { "type": "array", "items": { "type": "string" } },
+                        "heuristic_bootstrap": { "type": "boolean", "default": true },
+                        "use_local_pawn_class": { "type": "boolean", "default": true },
+                        "min_hp": { "type": "number", "default": 1.0 },
+                        "max_hp": { "type": "number", "default": 1000.0 }
+                    }
+                }
+            }
+        },
+        "actor": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "ClassPrivate": { "$ref": "#/definitions/nullableHexOffset" },
+                "FNameIndex": { "$ref": "#/definitions/nullableHexOffset" },
+                "RootComponent": { "$ref": "#/definitions/nullableHexOffset" },
+                "PositionSource": {
+                    "type": "string",
+                    "enum": ["RelativeLocation", "ComponentToWorld"],
+                    "default": "RelativeLocation"
+                },
+                "WorldPosition": { "$ref": "#/definitions/nullableHexOffset" },
+                "RelativeLocation": { "$ref": "#/definitions/nullableHexOffset" },
+                "ComponentToWorld": { "$ref": "#/definitions/nullableHexOffset" },
+                "Health": { "$ref": "#/definitions/nullableHexOffset" },
+                "MaxHealth": { "$ref": "#/definitions/nullableHexOffset" },
+                "TeamId": { "$ref": "#/definitions/nullableHexOffset" },
+                "PlayerName": { "$ref": "#/definitions/nullableHexOffset" },
+                "PlayerNameIsUtf16": { "type": "boolean", "default": true },
+                "IsBot": { "$ref": "#/definitions/nullableHexOffset" },
+                "PlayerState": { "$ref": "#/definitions/nullableHexOffset" },
+                "PawnPrivate": { "$ref": "#/definitions/nullableHexOffset" },
+                "Controller": { "$ref": "#/definitions/nullableHexOffset" },
+                "AttributesOnPlayerState": { "type": "boolean", "default": false },
+                "BoxBaseOffset": { "type": "number", "default": 0.0 },
+                "BoxHeight": { "type": "number", "default": 165.0 },
+                "DistanceScale": { "type": "number", "default": 0.01 },
+                "Mesh": { "$ref": "#/definitions/nullableHexOffset" }
+            }
+        },
+        "player_state": {
+            "type": "object",
+            "description": "Offsets read from APlayerState (automatically take precedence over actor.*).",
+            "additionalProperties": false,
+            "properties": {
+                "PawnPrivate": { "$ref": "#/definitions/nullableHexOffset" },
+                "Health": { "$ref": "#/definitions/nullableHexOffset" },
+                "MaxHealth": { "$ref": "#/definitions/nullableHexOffset" },
+                "TeamId": { "$ref": "#/definitions/nullableHexOffset" },
+                "PlayerName": { "$ref": "#/definitions/nullableHexOffset" }
+            }
+        },
+        "bones": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "enabled": { "type": "boolean", "default": false },
+                "Mesh": { "$ref": "#/definitions/nullableHexOffset" },
+                "ComponentToWorld": { "$ref": "#/definitions/nullableHexOffset" },
+                "BoneArray": { "$ref": "#/definitions/nullableHexOffset" },
+                "BoneArrayBias": { "$ref": "#/definitions/nullableHexOffset" },
+                "BoneStride": { "$ref": "#/definitions/nullableHexOffset" },
+                "BoneCountOffset": { "$ref": "#/definitions/nullableHexOffset" },
+                "MaxDistance": { "type": "number", "default": 250.0 },
+                "MaxSegmentPixels": { "type": "number", "default": 350.0 },
+                "default_profile": { "$ref": "#/definitions/boneProfile" },
+                "profiles": {
+                    "type": "object",
+                    "additionalProperties": { "$ref": "#/definitions/boneProfile" }
+                }
+            }
+        },
+        "vehicle_map": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+        },
+        "loot_map": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+        },
+        "internal": {
+            "type": "object",
+            "description": "Optional in-process (libesp4all_internal.so) native getter and GUObjectArray configuration. Ignored by external executable.",
+            "additionalProperties": false,
+            "properties": {
+                "GNames_getter": {
+                    "$ref": "#/definitions/nullableHexOffset",
+                    "description": "Module-relative offset of native getter `void* (*)()` returning GNames/FNamePool*."
+                },
+                "GNames_getter_offset": {
+                    "$ref": "#/definitions/nullableHexOffset",
+                    "description": "Optional byte offset added to GNames_getter return address (default 0)."
+                },
+                "GNames_getter_deref": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Dereference GNames_getter return pointer once (for getters returning TNameEntryArray**)."
+                },
+                "GetActorArray_fn": {
+                    "$ref": "#/definitions/nullableHexOffset",
+                    "description": "Module-relative offset of native getter `void* (*)(uintptr_t levelPtr)` returning TArray<AActor*>*."
+                },
+                "GUObjectArray": {
+                    "$ref": "#/definitions/nullableHexOffset",
+                    "description": "Module-relative offset of FUObjectArray::ObjObjects for GameViewport->World fallback (requires engine_path.ViewportWorld)."
+                },
+                "UObjectArray_ElementSize": {
+                    "$ref": "#/definitions/nullableHexOffset",
+                    "description": "sizeof(FUObjectItem) in bytes (default \"0x18\")."
+                },
+                "UObjectArray_ChunkSize": {
+                    "$ref": "#/definitions/nullableHexOffset",
+                    "description": "Elements per chunk for FChunkedFixedUObjectArray (default \"0x10000\")."
+                },
+                "UObjectArray_NumOffset": {
+                    "$ref": "#/definitions/nullableHexOffset",
+                    "description": "Offset of NumElements inside ObjObjects (default \"0x14\" chunked, \"0xC\" flat)."
+                },
+                "UObjectArray_Chunked": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "true for UE4.21+ FChunkedFixedUObjectArray, false for pre-4.21 flat TUObjectArray."
+                },
+                "ViewportClassName": {
+                    "type": "string",
+                    "default": "GameViewportClient",
+                    "description": "Substring matched against object/class names when locating UGameViewportClient in GUObjectArray."
+                },
+                "safe_memory_read": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "true uses SAFE_SELF_VM (kernel-validated self process_vm_readv); false uses direct memcpy."
+                }
+            }
+        },
+        "offsets": {
+            "type": "object",
+            "description": "Legacy nested offsets.* container kept for backward compatibility.",
+            "additionalProperties": true
+        }
+    }
+}

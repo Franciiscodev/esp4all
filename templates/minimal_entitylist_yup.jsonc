@@ -1,0 +1,86 @@
+// =============================================================================
+// ESP4All Core — Template Minimal: WorldActors via EntityList_chain (Não-UE4)
+// =============================================================================
+// Para engines customizadas / não-UE4 (ex.: Y-Up, matriz row_major, lista de
+// entidades por ponteiro begin/end ou null-terminated, escala em metros).
+// Não usa GWorld nem PersistentLevel — exige apenas 4–5 offsets essenciais.
+//
+// No dispositivo Android, envie este arquivo para:
+//   /data/local/tmp/ue4_config.json
+// =============================================================================
+{
+    "$schema": "../esp4all.schema.json",
+    "meta": {
+        "game": "Minimal Non-UE4 — EntityList Chain (Y-Up / Row-Major)",
+        "engine": "CustomYUp",
+        "arch": 64
+    },
+
+    "game": {
+        "package_name": "com.example.yupgame", // REQUIRED: processo em /proc/<pid>/cmdline
+        "module_name": "libGame.so",           // REQUIRED: biblioteca em /proc/<pid>/maps
+        "segment": "r-xp"                      // OPTIONAL (default "r-xp"): "r-xp" | "first" | "r--p" | "rw-p" | "bss"
+    },
+
+    "entity_provider": {
+        "type": "WorldActors"                  // REQUIRED: em modo EntityList_chain, dispensa GWorld/PersistentLevel
+    },
+
+    // [1/5] Cadeia direta até o container da lista de entidades (origem: moduleBase)
+    // [2/5] LevelActors (OPTIONAL): somado ao endereço retornado por EntityList_chain.
+    //       Se a chain já terminar com '+0x...' direto no header do array, deixe LevelActors = null.
+    "world": {
+        "EntityList_chain": [],                // REQUIRED: ex. ["0x4C72D08", "0x128", "0xC8", "0x28", "0x148"]
+        "LevelActors": null,                   // OPTIONAL: offset do array dentro do container (ex. "0xF0")
+        "ArrayCountMode": "end_ptr",           // "count" (TArray) | "end_ptr" (begin+end) | "null_terminated"
+        "MaxActors": 2000                      // limite máximo de entradas lidas (1..10000)
+    },
+
+    // [3/5] Câmera via ViewMatrix 4x4 (origem da chain: moduleBase)
+    "camera": {
+        "mode": "matrix",
+        "matrix_layout": "row_major",          // "row_major" (M * v) | "column_major" (v * M)
+        "up_axis": "Y",                        // "Y" (Y-Up) | "Z" (Z-Up)
+        "view_matrix_chain": []                // REQUIRED: ex. ["0x4C73110", "0x0", "+0x490"]
+    },
+
+    "name_system": {
+        "enabled": false
+    },
+
+    // Sem local_player configurado, max_distance e max_z_delta não são avaliados.
+    // Para filtrar por sentinel encadeado a partir do actor (origem: AActor*), troque mode para "sentinel":
+    //
+    // "entity_filter": {
+    //     "mode": "sentinel",
+    //     "skip_zero_pos": true,
+    //     "skip_local_player": false,
+    //     "sentinel": {
+    //         "chain": ["0x40", "0x40", "0x18", "+0xF4"],
+    //         "type": "int32",                // "float" | "int32"
+    //         "value": 30
+    //     }
+    // },
+    "entity_filter": {
+        "mode": "none",
+        "skip_zero_pos": true,
+        "skip_local_player": false
+    },
+
+    // [4/5] e [5/5] Transform / Posição 3D do ator (em metros)
+    "actor": {
+        "RootComponent": null,                 // REQUIRED: ponteiro para componente de transform (ex. "0x40")
+        "WorldPosition": null,                 // REQUIRED: offset do Vec3 (x,y,z) no componente (ex. "0x7C")
+        "PositionSource": "RelativeLocation",
+        "BoxBaseOffset": -0.5,                 // world units (metros): deslocamento vertical dos pés
+        "BoxHeight": 2.0,                      // world units (metros): altura da caixa
+        "DistanceScale": 1.0                   // 1.0 quando o mundo já está em metros
+    }
+
+    // --- Modo Interno opcional (libesp4all_internal.so — ignorado no executável externo) ---
+    // Em engines não-UE4, o mesmo EntityList_chain funciona direto via DirectMemoryReader:
+    // ,
+    // "internal": {
+    //     "safe_memory_read": true            // true = SAFE_SELF_VM (à prova de SIGSEGV), false = DIRECT_MEMCPY
+    // }
+}

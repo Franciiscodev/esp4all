@@ -1,0 +1,162 @@
+// =============================================================================
+// ESP4All Core — Template Completo: GameStatePlayer (UE4)
+// =============================================================================
+// Referência completa para jogos UE4 com jogadores em GameState -> PlayerArray:
+//  - Itera UWorld -> GameState -> PlayerArray (TArray<APlayerState*>) -> PawnPrivate
+//  - Separa claramente offsets do Pawn ("actor") e do APlayerState ("player_state")
+//  - LocalPlayer + Câmera dual em modo "auto" (ViewMatrix com fallback CameraCache)
+//  - Sem chaves mortas de PersistentLevel / LevelActors / heuristic_pc_scan
+//
+// No dispositivo Android, envie este arquivo para:
+//   /data/local/tmp/ue4_config.json
+// =============================================================================
+{
+    "$schema": "../esp4all.schema.json",
+    "meta": {
+        "game": "Full UE4 — GameStatePlayer",
+        "version": "1.0",
+        "engine": "UE4",
+        "engine_version": "4.27",
+        "arch": 64
+    },
+
+    "game": {
+        "package_name": "com.example.ue4game", // REQUIRED
+        "module_name": "libUE4.so",            // REQUIRED
+        "segment": "r-xp"                      // OPTIONAL (default "r-xp")
+    },
+
+    "entity_provider": {
+        "type": "GameStatePlayer"              // REQUIRED
+    },
+
+    // Origem das chains em globals: moduleBase
+    "globals": {
+        "GWorld_chain": []                     // REQUIRED: ex. ["0xBFA10E0"]
+        // Fallback opcional caso GWorld falhe:
+        // "GEngine_chain": ["0x..."]          // usar junto com "engine_path" abaixo
+        // Se ativar name_system, adicione também:
+        // "FNamePool_chain": ["+0x..."]       // ou "GNames_chain": ["0x..."]
+    },
+
+    // Fallback opcional GEngine -> GameViewport -> World:
+    // "engine_path": {
+    //     "EngineGameViewport": "0x808",
+    //     "ViewportWorld": "0x70"
+    // },
+
+    // PersistentLevel e LevelActors não são usados pelo GameStatePlayer.
+    "world": {
+        "GameState": null,                     // REQUIRED: UWorld::GameState (0x120–0x1B0)
+        "PlayerArray": null,                   // REQUIRED: AGameStateBase::PlayerArray (0x238–0x4D0)
+        // "NetDriver": "0x38",                // OPTIONAL (externo/interno): UWorld::NetDriver (resolve PlayerController/Pawn sem LocalPlayers)
+        "OwningGameInstance": null             // OPTIONAL (necessário p/ LocalPlayer padrão): 0x180–0x1D0
+    },
+
+    // Resolução do jogador local (usada para skip_local_player, skip_same_team,
+    // max_distance/max_z_delta e CameraCache).
+    "local_player": {
+        "GameInstance_LocalPlayers": "0x38",   // UGameInstance::LocalPlayers (ABI estável: 0x38)
+        "LocalPlayer_PlayerController": "0x30",// UPlayer::PlayerController (ABI estável: 0x30)
+        // Alternativa 100% externa via NetDriver (quando LocalPlayers está encriptado):
+        // "NetDriver_ServerConnection": "0x78",       // UNetDriver::ServerConnection (UNetConnection*)
+        // "ServerConnection_PlayerController": "0x30",// UPlayer::PlayerController (default = LocalPlayer_PlayerController)
+        "PlayerController_Pawn": null,         // APlayerController::AcknowledgedPawn (0x250–0x2C0)
+        "PlayerController_CameraManager": null // APlayerController::PlayerCameraManager (0x2B8–0x390)
+        // Alternativas diretas caso LocalPlayers esteja ofuscado:
+        // "LocalPawn_chain": ["0x...", "0x0", "0x20"],       // origem: moduleBase
+        // "LocalPawn_from_world_chain": ["0x8", "0x48", "0x20"] // origem: UWorld*
+    },
+
+    // Em mode = "auto", tenta view_matrix_chain primeiro e usa camera_cache como fallback.
+    "camera": {
+        "mode": "auto",                        // "auto" | "matrix" | "camera_cache"
+        "matrix_layout": "column_major",       // "column_major" | "row_major"
+        "up_axis": "Z",                        // "Z" | "Y"
+        "view_matrix_chain": [],               // REQUIRED se camera_cache não estiver configurado: ex. ["0x...", "0x20", "+0x290"]
+        "camera_cache": {
+            "CameraCache": null,               // APlayerCameraManager::CameraCachePrivate (0x1AE0–0x2E00)
+            "POV": "0x10",                     // FCameraCacheEntry::POV (ABI estável: 0x10)
+            "Location": "0x00",                // FMinimalViewInfo::Location
+            "Rotation": "0x0C",                // FMinimalViewInfo::Rotation
+            "FOV": "0x18",                     // FMinimalViewInfo::FOV
+            "FOVRelativeToCache": false
+        }
+    },
+
+    // NameSystem opcional (em GameStatePlayer geralmente basta player_state.PlayerName).
+    "name_system": {
+        "enabled": false
+        // Para ativar FNamePool (UE4.23+), mude enabled para true, configure globals.FNamePool_chain e descomente:
+        // "type": "FNamePool",
+        // "allocator": { "CurrentBlock": "0x8", "Blocks": "0x10", "Stride": "0x2" },
+        // "entry": { "HeaderSize": "0x2" }
+    },
+
+    // Unidades:
+    //   max_distance -> metros (após * DistanceScale)
+    //   max_z_delta  -> world units (antes de DistanceScale; 10000 cm = 100 m em UE4)
+    "entity_filter": {
+        "mode": "none",                        // PlayerArray já contém apenas jogadores
+        "max_distance": 500.0,
+        "max_z_delta": 10000.0,
+        "skip_zero_pos": true,
+        "skip_local_player": true,
+        "skip_same_team": false,
+        "skip_dead": true
+    },
+
+    // Offsets pertencentes ao APawn / USceneComponent
+    "actor": {
+        // AActor::RootComponent: 0x130 (pré-4.14) | 0x158 (4.17–4.19) | 0x1B0 (4.20–4.26) | até 0x278 (4.27)
+        "RootComponent": null,                 // REQUIRED
+        "PositionSource": "RelativeLocation",  // "RelativeLocation" (default) | "ComponentToWorld"
+        "WorldPosition": null,                 // REQUIRED se PositionSource == "RelativeLocation"
+        // "ComponentToWorld": null,           // REQUIRED se PositionSource == "ComponentToWorld" (soma +0x10 automático)
+
+        "PlayerState": null,                   // OPTIONAL: APawn::PlayerState (0x240–0x2A0; usado p/ ler TeamId do LocalPawn)
+        // "Controller": null,                 // OPTIONAL: APawn::Controller (0x258–0x280; fallback LocalPawn -> Controller)
+        // "IsBot": null,                      // OPTIONAL: flag uint8 no APawn
+        "PlayerNameIsUtf16": true,             // aplica-se também a player_state.PlayerName
+
+        "BoxBaseOffset": 0.0,                  // world units (cm em UE4)
+        "BoxHeight": 165.0,                    // world units (cm em UE4)
+        "DistanceScale": 0.01                  // cm -> metros
+    },
+
+    // Offsets pertencentes ao APlayerState (têm prioridade automática sobre actor.*)
+    // Se algum atributo (ex.: Health) ficar no APawn em vez do APlayerState, mova-o para a seção "actor".
+    "player_state": {
+        "PawnPrivate": null,                   // REQUIRED: APlayerState::PawnPrivate (0x280–0x528)
+        "Health": null,                        // OPTIONAL: float
+        "MaxHealth": null,                     // OPTIONAL: float
+        "TeamId": null,                        // OPTIONAL: int32
+        "PlayerName": null                     // OPTIONAL: ponteiro FString/wchar* (ou char* se PlayerNameIsUtf16 = false)
+    },
+
+    // Esqueleto opcional de 15 ossos (FTransform):
+    "bones": {
+        "enabled": false
+        // "Mesh": null,
+        // "ComponentToWorld": null,
+        // "BoneArray": null,
+        // "BoneArrayBias": "0x0",
+        // "BoneStride": "0x30",
+        // "BoneCountOffset": null,
+        // "MaxDistance": 200.0,
+        // "MaxSegmentPixels": 350.0,
+        // "default_profile": [5, 4, 0, 11, 32, 12, 33, 63, 62, 52, 56, 53, 57, 54, 58]
+    }
+
+    // Modo Interno opcional (libesp4all_internal.so — ignorado no executável externo):
+    // ,
+    // "internal": {
+    //     "GNames_getter": "0x...",            // void* (*)() -> TNameEntryArray* / FNamePool*
+    //     "GNames_getter_offset": "0x0",
+    //     "GNames_getter_deref": false,
+    //     "GUObjectArray": "0x...",            // FUObjectArray::ObjObjects (requer engine_path.ViewportWorld)
+    //     "UObjectArray_Chunked": true,        // true (UE4.21+ FChunkedFixedUObjectArray) | false (flat TUObjectArray)
+    //     "ViewportClassName": "GameViewportClient",
+    //     "safe_memory_read": true             // true = SAFE_SELF_VM (à prova de SIGSEGV), false = DIRECT_MEMCPY
+    // }
+}
