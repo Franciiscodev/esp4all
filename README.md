@@ -16,6 +16,13 @@ Designed with strict separation between **Engine / Memory Translation** and **Re
 
 ---
 
+<p align="center">
+  <img src="example/esp4all_core.jpg" height="450" />
+  <img src="example/example.png" height="450" />
+</p>
+
+---
+
 ## Key Features
 
 - **Zero-Recompile Config-Driven Engine (`JSONC`)**
