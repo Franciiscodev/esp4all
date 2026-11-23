@@ -6,6 +6,7 @@
 [![Graphics](https://img.shields.io/badge/Graphics-Vulkan%20%7C%20OpenGL%20ES%202%2F3-orange.svg)](https://www.khronos.org/vulkan/)
 [![ELF](https://img.shields.io/badge/ELF%20Pages-16%20KB%20Aligned-informational.svg)](jni/Android.mk)
 [![Tests](https://img.shields.io/badge/Host%20Tests-375%20Assertions%20%7C%200%20Allocs-success.svg)](tests/test_config_and_templates.cpp)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A modular, config-driven **Android ARM64 (`arm64-v8a`) C++17** Dear ImGui 1.92 overlay and 3D-engine memory translation engine for **Unreal Engine 4** and custom **Y-Up / Row-Major** engines.
 
@@ -138,30 +139,18 @@ clang++ -std=c++17 -O2 -Wall -Wextra -Werror \
 
 ---
 
-## Documentation
-
-| Document | Language | Contents |
-|---|---|---|
-| [`documentation.md`](documentation.md) | PT-BR | Complete user/developer guide: JSONC reference, units & defaults, `PositionSource`, UE4 SDK offset mapping, and Chain Debugger troubleshooting |
-| [`context.md`](context.md) | EN | Architectural invariants, directory/module map, and build/test commands for contributors & agents |
-| [`future_internal_and_symbols.md`](future_internal_and_symbols.md) | PT-BR | Technical roadmap for UE4 dump symbols (`Vworld`, `GetActorArray`/`GetXX`, `ProcessEvent`) and in-process `InternalEngineBridge` extensions |
-| [`plano_melhorias_new2.md`](plano_melhorias_new2.md) | PT-BR | Completed 4-phase engineering plan covering Android 5–17, ImGui 1.92.7, multi-protocol Touch + `uinput`, and frame efficiency |
-| [`esp4all.schema.json`](esp4all.schema.json) | EN | Draft-07 JSON Schema for VS Code autocomplete and validation |
-
----
-
 ## Project Layout
 
 ```text
-esp4all_core/
+esp4all/
+├── LICENSE
 ├── README.md
 ├── documentation.md
 ├── context.md
 ├── future_internal_and_symbols.md
-├── plano_melhorias_new2.md
 ├── esp4all.schema.json
 ├── templates/                   # 3 minimal (per provider/mode) + 2 full clean .jsonc templates
-├── tests/                       # Host C++17 test suite (337 assertions, synthetic ARM64 memory, 0-alloc)
+├── tests/                       # Host C++17 test suite (375 assertions, synthetic ARM64 memory, 0-alloc)
 └── jni/
     ├── Android.mk / Application.mk
     ├── include/
@@ -181,7 +170,7 @@ esp4all_core/
 
 ## License
 
-See repository license terms. Third-party components and architectural inspirations retain their original licenses:
+Licensed under the [MIT License](LICENSE). Third-party components and architectural inspirations retain their original licenses:
 - **Dear ImGui** (MIT License)
 - **nlohmann/json** (MIT License)
 - SurfaceFlinger symbol-probing, ImGui 1.92 backend, and evdev/`uinput` touch designs inspired by open-source Android overlay research (`android-imgui`).
